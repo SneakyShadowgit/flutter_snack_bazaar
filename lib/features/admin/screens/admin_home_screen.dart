@@ -4,6 +4,7 @@ import 'package:snack_bazaar/features/admin/models/seller_request.dart';
 import 'package:snack_bazaar/features/admin/widgets/stat_card.dart';
 import 'package:snack_bazaar/features/admin/widgets/seller_request_card.dart';
 import 'package:snack_bazaar/features/admin/screens/sellers_list_screen.dart';
+import 'package:snack_bazaar/features/admin/screens/insights_screen.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -98,16 +99,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       case 1:
         return const SellersListScreen();
       case 2:
-        // Insights tab placeholder
-        return const Center(
-          child: Text(
-            'Insights coming soon',
-            style: TextStyle(
-              fontSize: 16,
-              color: AppColors.textSecondary,
-            ),
-          ),
-        );
+        return const InsightsScreen();
       case 0:
       default:
         return _buildRequestsBody();

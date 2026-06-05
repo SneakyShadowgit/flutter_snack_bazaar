@@ -1,0 +1,163 @@
+# Implementation Plan: Seller and Buyer Modules for Snack Bazaar
+
+This plan outlines the architecture, layout, navigation, and mock data for adding the **Seller Portal** and **Buyer/User Portal** to the Snack Bazaar Flutter application, matching the provided Figma designs.
+
+The existing **Admin Portal** remains completely unmodified.
+
+---
+
+## User Review Required
+
+> [!IMPORTANT]
+> **Role Selection Entry Point**: We will modify `lib/app.dart` to launch a beautiful **Role Selector Screen** at startup. This screen allows navigating into either the **Admin Portal**, **Seller Portal**, or **Buyer Portal**. This enables testing all three modules within the same application runner.
+
+---
+
+## Proposed Changes
+
+We will organize the code using a feature-based folder structure under `lib/features/`.
+
+```
+lib/
+├── app.dart
+├── core/
+│   └── theme/
+│       ├── app_colors.dart
+│       └── app_theme.dart
+└── features/
+    ├── admin/                 <-- UNMODIFIED
+    ├── role_selector/
+    │   └── screens/
+    │       └── role_selector_screen.dart [NEW]
+    ├── seller/
+    │   ├── models/
+    │   │   ├── seller_product.dart   [NEW]
+    │   │   └── seller_order.dart     [NEW]
+    │   ├── screens/
+    │   │   ├── seller_home_screen.dart [NEW]
+    │   │   ├── seller_dashboard_tab.dart [NEW]
+    │   │   ├── product_management_tab.dart [NEW]
+    │   │   ├── add_edit_product_screen.dart [NEW]
+    │   │   ├── orders_management_tab.dart [NEW]
+    │   │   └── business_insights_tab.dart [NEW]
+    │   └── widgets/
+    │       └── [custom widgets if needed]
+    └── buyer/
+        ├── models/
+        │   ├── cart_item.dart        [NEW]
+        │   └── buyer_order.dart      [NEW]
+        ├── screens/
+        │   ├── buyer_home_screen.dart  [NEW]
+        │   ├── buyer_browse_tab.dart   [NEW]
+        │   ├── product_detail_screen.dart [NEW]
+        │   ├── cart_tab.dart         [NEW]
+        │   └── orders_tab.dart        [NEW]
+```
+
+### 1. Entry Point & Role Selection
+
+#### [MODIFY] [app.dart](file:///c:/Users/acer/Desktop/toPro/flutter_inter/snack_bazaar/lib/app.dart)
+- Update the home widget of `MaterialApp` to `RoleSelectorScreen()`.
+
+#### [NEW] [role_selector_screen.dart](file:///c:/Users/acer/Desktop/toPro/flutter_inter/snack_bazaar/lib/features/role_selector/screens/role_selector_screen.dart)
+- A clean, modern page with cards representing the three user personas: **Admin**, **Seller**, and **Buyer**.
+- Selecting a role routes to the respective module's main screen.
+
+---
+
+### 2. Seller Module
+
+Matches the deep-blue and neutral styling shown in the designs.
+
+#### [NEW] [seller_product.dart](file:///c:/Users/acer/Desktop/toPro/flutter_inter/snack_bazaar/lib/features/seller/models/seller_product.dart)
+- Model representing inventory items with: `id`, `name`, `description`, `price`, `category`, `stockQuantity`, `rating`, and `imageAsset` (or local placeholder representation).
+
+#### [NEW] [seller_order.dart](file:///c:/Users/acer/Desktop/toPro/flutter_inter/snack_bazaar/lib/features/seller/models/seller_order.dart)
+- Model representing customer orders for a seller with statuses: `pending`, `packed`, `shipped`, `delivered`. Includes items, quantity, total amount, customer name, and timestamp.
+
+#### [NEW] [seller_home_screen.dart](file:///c:/Users/acer/Desktop/toPro/flutter_inter/snack_bazaar/lib/features/seller/screens/seller_home_screen.dart)
+- The shell page hosting a `BottomNavigationBar` to toggle between:
+  1. **Dashboard**
+  2. **Products** (Inventory)
+  3. **Orders**
+  4. **Insights**
+
+#### [NEW] [seller_dashboard_tab.dart](file:///c:/Users/acer/Desktop/toPro/flutter_inter/snack_bazaar/lib/features/seller/screens/seller_dashboard_tab.dart)
+- Dashboard metrics matching the designs:
+  - Welcome Banner ("Welcome back, Baker")
+  - Grid Cards: Total Products (24), Pending Orders (5), Total Orders (120), Today's Revenue ($450.00).
+
+#### [NEW] [product_management_tab.dart](file:///c:/Users/acer/Desktop/toPro/flutter_inter/snack_bazaar/lib/features/seller/screens/product_management_tab.dart)
+- List of inventory snacks with a Search bar.
+- Product cards showing snack photo, title, price, category, rating, with "Edit" and "Delete" buttons.
+- Floating Action Button `+` to open the "Add Product" form.
+
+#### [NEW] [add_edit_product_screen.dart](file:///c:/Users/acer/Desktop/toPro/flutter_inter/snack_bazaar/lib/features/seller/screens/add_edit_product_screen.dart)
+- Detailed form to Add or Edit a product.
+- Form fields: Name, Description, Category (dropdown), Stock Quantity, Price.
+- Image picker mockup with options to "Remove" or "Change Photo".
+- "Update/Save Product" and "Discard Changes" buttons.
+
+#### [NEW] [orders_management_tab.dart](file:///c:/Users/acer/Desktop/toPro/flutter_inter/snack_bazaar/lib/features/seller/screens/orders_management_tab.dart)
+- Tabs representing order metrics: Pending, Packed, Shipped, Revenue.
+- Active orders list with state modification buttons: "Mark as Packed", "Mark as Shipped", "Mark as Delivered" to advance order states in the UI.
+
+#### [NEW] [business_insights_tab.dart](file:///c:/Users/acer/Desktop/toPro/flutter_inter/snack_bazaar/lib/features/seller/screens/business_insights_tab.dart)
+- Display revenue performance, summary insights, and the **Top 5 Selling Products** list with their respective metrics (volume, revenue).
+
+---
+
+### 3. Buyer/User Module
+
+Utilizes an orange/amber color theme as per the design layout.
+
+#### [NEW] [cart_item.dart](file:///c:/Users/acer/Desktop/toPro/flutter_inter/snack_bazaar/lib/features/buyer/models/cart_item.dart)
+- Model containing a product reference and quantity.
+
+#### [NEW] [buyer_order.dart](file:///c:/Users/acer/Desktop/toPro/flutter_inter/snack_bazaar/lib/features/buyer/models/buyer_order.dart)
+- Model representing customer-side order history with statuses like `packed`, `delivered`, `shipped`.
+
+#### [NEW] [buyer_home_screen.dart](file:///c:/Users/acer/Desktop/toPro/flutter_inter/snack_bazaar/lib/features/buyer/screens/buyer_home_screen.dart)
+- The shell page hosting a `BottomNavigationBar` to toggle between:
+  1. **Home** (Browse)
+  2. **Cart**
+  3. **Orders** (Order History)
+
+#### [NEW] [buyer_browse_tab.dart](file:///c:/Users/acer/Desktop/toPro/flutter_inter/snack_bazaar/lib/features/buyer/screens/buyer_browse_tab.dart)
+- Browse snacks homepage.
+- Header with search bar, location pin, and user profile icon.
+- Horizontal Category selector (Sushi, Cookies, Chips, Pickles, etc.).
+- Filter chips (Vegetarian, Non-Vegetarian).
+- Snack grid displaying items with seller name, price, rating, and a `+` Add to Cart button.
+
+#### [NEW] [product_detail_screen.dart](file:///c:/Users/acer/Desktop/toPro/flutter_inter/snack_bazaar/lib/features/buyer/screens/product_detail_screen.dart)
+- Full-screen details page.
+- Beautiful hero header with the product image.
+- Rating & Delivery Info banner (Shelf life, Net weight).
+- Product description, seller brand detail card.
+- Floating bottom bar with price and "Add to Cart" button.
+
+#### [NEW] [cart_tab.dart](file:///c:/Users/acer/Desktop/toPro/flutter_inter/snack_bazaar/lib/features/buyer/screens/cart_tab.dart)
+- List of items currently in the cart with quantity adjustment controls (`-`, `+`) and a "Delete" option.
+- Order calculation details showing Total Items and Pricing.
+- Prominent "Place Order" button.
+
+#### [NEW] [orders_tab.dart](file:///c:/Users/acer/Desktop/toPro/flutter_inter/snack_bazaar/lib/features/buyer/screens/orders_tab.dart)
+- Tabs representing filter states: All Orders, Active, Completed, Cancelled.
+- Detailed order history cards listing order contents, date, status, total price, and action buttons ("Track Order", "Order Again", "View Details").
+
+---
+
+## Verification Plan
+
+### Automated Verification
+- We will run `flutter analyze` to verify that there are no compilation issues, lint errors, or unused imports across the newly introduced files.
+- We will test running the application via `flutter run` and check logs.
+
+### Manual Verification
+- We will verify that each screen compiles and displays all components according to the designs.
+- We will verify navigation paths:
+  - Swapping between Admin, Seller, and Buyer portals using the Role Selector.
+  - Swapping tabs in both Seller and Buyer portals using the BottomNavigationBar.
+  - Adding/Editing products in the Seller portal.
+  - Viewing details, adding to cart, managing quantities, placing an order, and viewing orders in the Buyer portal.

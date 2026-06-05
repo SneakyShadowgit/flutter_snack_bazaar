@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:snack_bazaar/core/theme/app_theme.dart';
-import 'package:snack_bazaar/features/admin/screens/admin_home_screen.dart';
+import 'package:snack_bazaar/features/role_selector/screens/role_selector_screen.dart';
 
 class SnackBazaarApp extends StatelessWidget {
   const SnackBazaarApp({super.key});
@@ -11,7 +11,7 @@ class SnackBazaarApp extends StatelessWidget {
       title: 'Snack Bazaar',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: const AdminHomeScreen(),
+      home: const RoleSelectorScreen(),
     );
   }
 }
