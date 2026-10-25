@@ -1,51 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:snack_bazaar/app.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:snack_bazaar/firebase_options.dart';
 
-void main() {
-  runApp(ToDoApp());
-}
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
 
-class ToDoApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: TodoListScreen(),
-      debugShowCheckedModeBanner: false,
-    );
-  }
-}
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-class TodoListScreen extends StatefulWidget {
-  @override
-  _TodoListScreenState createState() => _TodoListScreenState();
-}
-
-class _TodoListScreenState extends State<TodoListScreen> {
-  List<Map<String, dynamic>> _tasks = [
-    {'title': "learn flutter", "isDone": true},
-    {'title': "complete the to do app", "isDone": false},
-    {'title': "have some rest", "isDone": true},
-  ];
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text("My To-Do List")),
-      body: ListView.builder(
-        itemCount: _tasks.length,
-        itemBuilder: (context, index) {
-          final task = _tasks[index];
-          return ListTile(
-            leading: Checkbox(
-              value: task['isDone'],
-              onChanged: (bool? newValue) {
-                setState(() {
-                  task['isDone'] = newValue ?? false;
-                });
-              },
-            ),
-            title: Text(task['title']),
-          );
-        },
-      ),
-    );
-  }
+  runApp(const SnackBazaarApp());
 }
