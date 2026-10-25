@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:snack_bazaar/core/theme/app_colors.dart';
 import 'package:snack_bazaar/features/seller/models/seller_product.dart';
 import 'package:snack_bazaar/features/seller/screens/product_management_tab.dart'; // for SnackVisualThumbnail
 import 'package:snack_bazaar/features/buyer/screens/product_detail_screen.dart';
 import 'package:snack_bazaar/features/buyer/models/product.dart';
 import 'package:snack_bazaar/features/buyer/services/product_repository.dart';
+import 'package:snack_bazaar/features/seller/screens/seller_application_screen.dart';
 
 class BuyerBrowseTab extends StatefulWidget {
   final Function(SellerProduct, {int quantity}) onAddToCart;
@@ -130,19 +132,12 @@ class _BuyerBrowseTabState extends State<BuyerBrowseTab> {
   Widget _buildHeaderRow() {
     return Row(
       children: [
-        IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-          tooltip: 'Change Portal',
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'SnackCraft',
+                'Snack Bazaar',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
@@ -150,27 +145,39 @@ class _BuyerBrowseTabState extends State<BuyerBrowseTab> {
                   letterSpacing: -0.5,
                 ),
               ),
-              Row(
-                children: const [
-                  Icon(Icons.location_on, size: 12, color: AppColors.textSecondary),
-                  SizedBox(width: 2),
-                  Text(
-                    'Dallas, Texas',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
+              const Text(
+                'Fresh snacks from local sellers',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary,
+                ),
               ),
             ],
           ),
         ),
-        CircleAvatar(
-          radius: 18,
-          backgroundColor: Colors.orange[800]!.withValues(alpha: 0.1),
-          child: Icon(Icons.person, color: Colors.orange[800], size: 18),
+        PopupMenuButton<String>(
+          tooltip: 'Account options',
+          onSelected: (action) {
+            if (action == 'apply') {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const SellerApplicationScreen(),
+                ),
+              );
+            } else if (action == 'sign_out') {
+              FirebaseAuth.instance.signOut();
+            }
+          },
+          itemBuilder: (context) => const [
+            PopupMenuItem(value: 'apply', child: Text('Apply to sell')),
+            PopupMenuItem(value: 'sign_out', child: Text('Sign out')),
+          ],
+          child: CircleAvatar(
+            radius: 18,
+            backgroundColor: Colors.orange[800]!.withValues(alpha: 0.1),
+            child: Icon(Icons.person, color: Colors.orange[800], size: 18),
+          ),
         ),
       ],
     );
@@ -308,36 +315,17 @@ class _BuyerBrowseTabState extends State<BuyerBrowseTab> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Image / Visual Box
-              Stack(
-                children: [
-                  Container(
-                    width: double.infinity,
-                    height: 160,
-                    color: Colors.amber.withValues(alpha: 0.05),
-                    child: Center(
-                      child: SnackVisualThumbnail(imageKey: sellerProduct.imageKey, size: 100),
-                    ),
+              Container(
+                width: double.infinity,
+                height: 160,
+                color: Colors.amber.withValues(alpha: 0.05),
+                child: Center(
+                  child: SnackVisualThumbnail(
+                    imageKey: sellerProduct.imageKey,
+                    imageUrl: sellerProduct.imageUrl,
+                    size: 100,
                   ),
-                  Positioned(
-                    top: 12,
-                    right: 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.orange[800],
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Text(
-                        'New Seller',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
               const Divider(height: 1, color: AppColors.border),
 
@@ -361,7 +349,7 @@ class _BuyerBrowseTabState extends State<BuyerBrowseTab> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'by $sellerName • $location',
+                            location.isEmpty ? 'by $sellerName' : 'by $sellerName • $location',
                             style: const TextStyle(
                               fontSize: 11.5,
                               color: AppColors.textSecondary,
@@ -371,28 +359,30 @@ class _BuyerBrowseTabState extends State<BuyerBrowseTab> {
                           Row(
                             children: [
                               Text(
-                                '\$${sellerProduct.price.toStringAsFixed(2)}',
+                                '₹${sellerProduct.price.toStringAsFixed(2)}',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w800,
                                   color: Colors.orange[800],
                                 ),
                               ),
-                              const SizedBox(width: 12),
-                              Row(
-                                children: [
-                                  const Icon(Icons.star, size: 14, color: Color(0xFFFFC107)),
-                                  const SizedBox(width: 2),
-                                  Text(
-                                    sellerProduct.rating.toString(),
-                                    style: const TextStyle(
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.textPrimary,
+                              if (sellerProduct.rating > 0) ...[
+                                const SizedBox(width: 12),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.star, size: 14, color: Color(0xFFFFC107)),
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      sellerProduct.rating.toString(),
+                                      style: const TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.textPrimary,
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
+                                  ],
+                                ),
+                              ],
                             ],
                           ),
                         ],

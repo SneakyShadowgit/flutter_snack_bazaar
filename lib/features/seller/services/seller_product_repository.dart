@@ -13,6 +13,7 @@
 //   final products = await repo.fetchProducts();
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:snack_bazaar/features/seller/models/seller_product.dart';
 
 class SellerProductRepository {
@@ -25,10 +26,25 @@ class SellerProductRepository {
   /// Returns a list of [SellerProduct] models parsed from Firestore snapshots.
   /// Throws an exception if the query fails (handled by calling UI layer).
   Future<List<SellerProduct>> fetchProducts() async {
-    final querySnapshot = await _productsCollection.get();
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) throw StateError('Sign in before viewing products.');
+    final querySnapshot = await _productsCollection
+        .where('sellerId', isEqualTo: uid)
+        .get();
     return querySnapshot.docs
         .map((doc) => SellerProduct.fromFirestore(doc))
         .toList();
+  }
+
+  Stream<List<SellerProduct>> watchProducts() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) throw StateError('Sign in before viewing products.');
+    return _productsCollection
+        .where('sellerId', isEqualTo: uid)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => SellerProduct.fromFirestore(doc))
+            .toList());
   }
 
   /// Adds a new product document to the Firestore "products" collection.
@@ -36,7 +52,14 @@ class SellerProductRepository {
   /// Firestore auto-generates the document ID. Returns the generated document ID
   /// so the UI can update the local product's ID reference if needed.
   Future<String> addProduct(SellerProduct product) async {
-    final docRef = await _productsCollection.add(product.toFirestore());
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) throw StateError('Sign in before adding products.');
+    final businessName = await _businessName(uid);
+    final docRef = await _productsCollection.add({
+      ...product.toFirestore(),
+      'sellerId': uid,
+      'seller': businessName,
+    });
     return docRef.id;
   }
 
@@ -45,7 +68,22 @@ class SellerProductRepository {
   /// Uses the product's [id] field as the Firestore document ID.
   /// Performs a full overwrite of the document fields via merge.
   Future<void> updateProduct(SellerProduct product) async {
-    await _productsCollection.doc(product.id).update(product.toFirestore());
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) throw StateError('Sign in before editing products.');
+    final businessName = await _businessName(uid);
+    await _productsCollection.doc(product.id).update({
+      ...product.toFirestore(),
+      'sellerId': uid,
+      'seller': businessName,
+    });
+  }
+
+  Future<String> _businessName(String uid) async {
+    final profile = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .get();
+    return profile.data()?['businessName'] as String? ?? 'Local Seller';
   }
 
   /// Deletes a product document from the Firestore "products" collection.

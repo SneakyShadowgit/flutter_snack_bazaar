@@ -23,8 +23,10 @@ class Product {
   final int stockQuantity;
   final double rating;
   final String imageKey;
+  final String imageUrl;
   final String location;
   final bool isVeg;
+  final String? sellerId;
 
   const Product({
     required this.id,
@@ -36,8 +38,10 @@ class Product {
     this.stockQuantity = 0,
     this.rating = 0.0,
     this.imageKey = 'default',
+    this.imageUrl = '',
     this.location = '',
     this.isVeg = true,
+    this.sellerId,
   });
 
   /// Factory constructor to create a Product from a Firestore document snapshot.
@@ -56,8 +60,10 @@ class Product {
       stockQuantity: (data['stockQuantity'] as num?)?.toInt() ?? 0,
       rating: (data['rating'] as num?)?.toDouble() ?? 0.0,
       imageKey: data['imageKey'] as String? ?? 'default',
+      imageUrl: data['imageUrl'] as String? ?? '',
       location: data['location'] as String? ?? '',
       isVeg: data['isVeg'] as bool? ?? true,
+      sellerId: data['sellerId'] as String?,
     );
   }
 
@@ -74,6 +80,9 @@ class Product {
       stockQuantity: stockQuantity,
       rating: rating,
       imageKey: imageKey,
+      imageUrl: imageUrl,
+      sellerId: sellerId,
+      sellerName: seller,
     );
   }
 }

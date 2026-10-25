@@ -4,8 +4,15 @@ import 'package:snack_bazaar/features/buyer/models/buyer_order.dart';
 
 class OrdersTab extends StatefulWidget {
   final List<BuyerOrder> orders;
+  final bool isLoading;
+  final String? errorMessage;
 
-  const OrdersTab({super.key, required this.orders});
+  const OrdersTab({
+    super.key,
+    required this.orders,
+    this.isLoading = false,
+    this.errorMessage,
+  });
 
   @override
   State<OrdersTab> createState() => _OrdersTabState();
@@ -18,6 +25,17 @@ class _OrdersTabState extends State<OrdersTab> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (widget.errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(widget.errorMessage!, textAlign: TextAlign.center),
+        ),
+      );
+    }
     // Filter orders based on active index
     final filteredOrders = widget.orders.where((order) {
       if (_activeFilterIndex == 0) return true; // All
@@ -143,33 +161,27 @@ class _OrdersTabState extends State<OrdersTab> {
   Widget _buildOrderCard(BuyerOrder order) {
     Color statusColor = Colors.grey;
     String statusLabel = '';
-    String actionBtnLabel = '';
 
     switch (order.status) {
       case BuyerOrderStatus.pending:
         statusColor = const Color(0xFFFFB300); // Amber
         statusLabel = 'Pending Approval';
-        actionBtnLabel = 'Track Order';
         break;
       case BuyerOrderStatus.packed:
         statusColor = const Color(0xFF8D6E63); // Brown
         statusLabel = 'Packed';
-        actionBtnLabel = 'Track Order';
         break;
       case BuyerOrderStatus.shipped:
         statusColor = const Color(0xFF4CAF50); // Green
         statusLabel = 'Shipped';
-        actionBtnLabel = 'Track Order';
         break;
       case BuyerOrderStatus.delivered:
         statusColor = AppColors.primary;
         statusLabel = 'Delivered';
-        actionBtnLabel = 'Order Again';
         break;
       case BuyerOrderStatus.cancelled:
         statusColor = AppColors.error;
         statusLabel = 'Cancelled';
-        actionBtnLabel = 'View Details';
         break;
     }
 
@@ -256,7 +268,7 @@ class _OrdersTabState extends State<OrdersTab> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'Total AmountPaid',
+                      'Order Total',
                       style: TextStyle(
                         fontSize: 12,
                         color: AppColors.textTertiary,
@@ -264,7 +276,7 @@ class _OrdersTabState extends State<OrdersTab> {
                       ),
                     ),
                     Text(
-                      '\$${order.totalAmount.toStringAsFixed(2)}',
+                      '₹${order.totalAmount.toStringAsFixed(2)}',
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
@@ -274,33 +286,6 @@ class _OrdersTabState extends State<OrdersTab> {
                   ],
                 ),
               ],
-            ),
-          ),
-          const Divider(height: 1, color: AppColors.border),
-
-          // Bottom Action Button
-          Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: SizedBox(
-              width: double.infinity,
-              height: 38,
-              child: OutlinedButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Mock: Triggered "$actionBtnLabel" action for order #${order.orderNumber}'),
-                      duration: const Duration(seconds: 1),
-                    ),
-                  );
-                },
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.orange[800],
-                  side: BorderSide(color: Colors.orange[200]!),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                ),
-                child: Text(actionBtnLabel),
-              ),
             ),
           ),
         ],

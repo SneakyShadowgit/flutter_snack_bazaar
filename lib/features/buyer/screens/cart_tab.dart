@@ -8,7 +8,8 @@ class CartTab extends StatelessWidget {
   final List<CartItem> cartItems;
   final Function(SellerProduct, int) onUpdateQuantity;
   final Function(SellerProduct) onRemove;
-  final VoidCallback onCheckout;
+  final Future<void> Function() onCheckout;
+  final bool isCheckoutBusy;
 
   const CartTab({
     super.key,
@@ -16,12 +17,13 @@ class CartTab extends StatelessWidget {
     required this.onUpdateQuantity,
     required this.onRemove,
     required this.onCheckout,
+    this.isCheckoutBusy = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final double subtotal = cartItems.fold(0.0, (sum, item) => sum + item.total);
-    final double deliveryFee = subtotal > 30.0 || subtotal == 0.0 ? 0.0 : 4.99;
+    final double deliveryFee = subtotal > 499.0 || subtotal == 0.0 ? 0.0 : 49.0;
     final double total = subtotal + deliveryFee;
 
     final int totalItemsCount = cartItems.fold(0, (sum, item) => sum + item.quantity);
@@ -101,7 +103,11 @@ class CartTab extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Visual thumbnail
-          SnackVisualThumbnail(imageKey: item.product.imageKey, size: 60),
+          SnackVisualThumbnail(
+            imageKey: item.product.imageKey,
+            imageUrl: item.product.imageUrl,
+            size: 60,
+          ),
           const SizedBox(width: 12),
           
           // Name and pricing
@@ -122,7 +128,7 @@ class CartTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${item.product.category} • \$${item.product.price.toStringAsFixed(2)} each',
+                  '${item.product.category} • ₹${item.product.price.toStringAsFixed(2)} each',
                   style: const TextStyle(
                     fontSize: 11.5,
                     color: AppColors.textSecondary,
@@ -130,7 +136,7 @@ class CartTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Total: \$${item.total.toStringAsFixed(2)}',
+                  'Total: ₹${item.total.toStringAsFixed(2)}',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
@@ -216,11 +222,11 @@ class CartTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          _buildSummaryRow('Subtotal', '\$${subtotal.toStringAsFixed(2)}'),
+          _buildSummaryRow('Subtotal', '₹${subtotal.toStringAsFixed(2)}'),
           const SizedBox(height: 8),
           _buildSummaryRow(
             'Delivery Charge',
-            deliveryFee == 0.0 ? 'FREE' : '\$${deliveryFee.toStringAsFixed(2)}',
+            deliveryFee == 0.0 ? 'FREE' : '₹${deliveryFee.toStringAsFixed(2)}',
             isGreenText: deliveryFee == 0.0,
           ),
           const Divider(height: 24, color: AppColors.border),
@@ -236,7 +242,7 @@ class CartTab extends StatelessWidget {
                 ),
               ),
               Text(
-                '\$${total.toStringAsFixed(2)}',
+                '₹${total.toStringAsFixed(2)}',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
@@ -304,7 +310,7 @@ class CartTab extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '\$${total.toStringAsFixed(2)}',
+                  '₹${total.toStringAsFixed(2)}',
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
@@ -318,9 +324,18 @@ class CartTab extends StatelessWidget {
               child: SizedBox(
                 height: 48,
                 child: ElevatedButton.icon(
-                  onPressed: onCheckout,
-                  icon: const Icon(Icons.shopping_bag_outlined, size: 18),
-                  label: const Text('Place Order', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                  onPressed: isCheckoutBusy ? null : () => onCheckout(),
+                  icon: isCheckoutBusy
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.shopping_bag_outlined, size: 18),
+                  label: Text(
+                    isCheckoutBusy ? 'Saving order...' : 'Place Order',
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.orange[800],
                     foregroundColor: Colors.white,

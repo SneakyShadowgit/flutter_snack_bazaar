@@ -15,7 +15,7 @@ class _ProductManagementTabState extends State<ProductManagementTab> {
   // Firestore repository instance for product CRUD operations
   final SellerProductRepository _productRepository = SellerProductRepository();
 
-  // List of products fetched from Firestore (replaces old sampleSellerProducts)
+  // Products shown here are fetched from Firestore.
   List<SellerProduct> _products = [];
   String _searchQuery = '';
 
@@ -251,7 +251,7 @@ class _ProductManagementTabState extends State<ProductManagementTab> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Snack visual drawing
-                SnackVisualThumbnail(imageKey: product.imageKey),
+                SnackVisualThumbnail(imageKey: product.imageKey, imageUrl: product.imageUrl),
                 const SizedBox(width: 14),
                 // Details
                 Expanded(
@@ -274,7 +274,7 @@ class _ProductManagementTabState extends State<ProductManagementTab> {
                             ),
                           ),
                           Text(
-                            '\$${product.price.toStringAsFixed(2)}',
+                            '₹${product.price.toStringAsFixed(2)}',
                             style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w800,
@@ -301,21 +301,23 @@ class _ProductManagementTabState extends State<ProductManagementTab> {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Row(
-                            children: [
-                              const Icon(Icons.star, size: 14, color: Color(0xFFFFC107)),
-                              const SizedBox(width: 2),
-                              Text(
-                                product.rating.toString(),
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.textPrimary,
+                          if (product.rating > 0) ...[
+                            const SizedBox(width: 8),
+                            Row(
+                              children: [
+                                const Icon(Icons.star, size: 14, color: Color(0xFFFFC107)),
+                                const SizedBox(width: 2),
+                                Text(
+                                  product.rating.toString(),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -495,11 +497,13 @@ class _ProductManagementTabState extends State<ProductManagementTab> {
 // Reusable Thumbnail drawing component to display beautiful, local representations of food items
 class SnackVisualThumbnail extends StatelessWidget {
   final String imageKey;
+  final String imageUrl;
   final double size;
 
   const SnackVisualThumbnail({
     super.key,
     required this.imageKey,
+    this.imageUrl = '',
     this.size = 76,
   });
 
@@ -547,6 +551,37 @@ class SnackVisualThumbnail extends StatelessWidget {
         break;
     }
 
+    final uri = Uri.tryParse(imageUrl);
+    if (uri != null && uri.hasAuthority && ['http', 'https'].contains(uri.scheme)) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.network(
+          imageUrl,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _buildPlaceholder(iconData, circleColor),
+          loadingBuilder: (context, child, progress) => progress == null
+              ? child
+              : SizedBox(
+                  width: size,
+                  height: size,
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      value: progress.expectedTotalBytes == null
+                          ? null
+                          : progress.cumulativeBytesLoaded / progress.expectedTotalBytes!,
+                    ),
+                  ),
+                ),
+        ),
+      );
+    }
+
+    return _buildPlaceholder(iconData, circleColor);
+  }
+
+  Widget _buildPlaceholder(IconData iconData, Color circleColor) {
     return Container(
       width: size,
       height: size,

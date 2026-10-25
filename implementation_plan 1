@@ -85,7 +85,7 @@ Matches the deep-blue and neutral styling shown in the designs.
 #### [NEW] [seller_dashboard_tab.dart](file:///c:/Users/acer/Desktop/toPro/flutter_inter/snack_bazaar/lib/features/seller/screens/seller_dashboard_tab.dart)
 - Dashboard metrics matching the designs:
   - Welcome Banner ("Welcome back, Baker")
-  - Grid Cards: Total Products (24), Pending Orders (5), Total Orders (120), Today's Revenue ($450.00).
+  - Grid Cards: Total Products (24), Pending Orders (5), Total Orders (120), Today's Revenue (₹450.00).
 
 #### [NEW] [product_management_tab.dart](file:///c:/Users/acer/Desktop/toPro/flutter_inter/snack_bazaar/lib/features/seller/screens/product_management_tab.dart)
 - List of inventory snacks with a Search bar.

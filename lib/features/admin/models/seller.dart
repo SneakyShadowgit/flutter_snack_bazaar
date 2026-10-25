@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum SellerStatus { active, suspended }
 
@@ -21,6 +22,16 @@ class Seller {
     this.iconBgColor = const Color(0xFF5D4037),
   });
 
+  factory Seller.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data() ?? const <String, dynamic>{};
+    return Seller(
+      id: doc.id,
+      businessName: data['businessName'] as String? ?? 'Unnamed business',
+      phone: data['phone'] as String? ?? '',
+      location: data['location'] as String? ?? '',
+    );
+  }
+
   Seller copyWith({SellerStatus? status}) {
     return Seller(
       id: id,
@@ -33,43 +44,3 @@ class Seller {
     );
   }
 }
-
-// Sample data matching the design
-final List<Seller> sampleSellers = [
-  const Seller(
-    id: '1',
-    businessName: 'Bean & Bar Artisans',
-    phone: '+1 (555) 112-4567',
-    location: 'Portland, OR',
-    status: SellerStatus.active,
-    icon: Icons.coffee,
-    iconBgColor: Color(0xFF5D4037),
-  ),
-  const Seller(
-    id: '2',
-    businessName: 'Sweet Root Jams',
-    phone: '+1 (555) 887-6543',
-    location: 'Austin, TX',
-    status: SellerStatus.active,
-    icon: Icons.local_dining,
-    iconBgColor: Color(0xFFC62828),
-  ),
-  const Seller(
-    id: '3',
-    businessName: 'Crunch Co.',
-    phone: '+1 (555) 234-5678',
-    location: 'Chicago, IL',
-    status: SellerStatus.suspended,
-    icon: Icons.bakery_dining,
-    iconBgColor: Color(0xFF37474F),
-  ),
-  const Seller(
-    id: '4',
-    businessName: 'Wild Yeast Bakery',
-    phone: '+1 (555) 891-7890',
-    location: 'Seattle, WA',
-    status: SellerStatus.active,
-    icon: Icons.breakfast_dining,
-    iconBgColor: Color(0xFFE65100),
-  ),
-];

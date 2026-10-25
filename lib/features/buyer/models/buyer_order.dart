@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 enum BuyerOrderStatus { pending, packed, shipped, delivered, cancelled }
 
 class BuyerOrder {
@@ -17,6 +19,32 @@ class BuyerOrder {
     required this.status,
   });
 
+  factory BuyerOrder.fromFirestore(
+    DocumentSnapshot<Map<String, dynamic>> document,
+  ) {
+    final data = document.data() ?? const <String, dynamic>{};
+    final createdAt = data['createdAt'];
+    final date = createdAt is Timestamp ? createdAt.toDate() : DateTime.now();
+    final rawItems = data['items'] as List<dynamic>? ?? const [];
+    final summaries = rawItems.map((rawItem) {
+      final item = Map<String, dynamic>.from(rawItem as Map);
+      return '${item['quantity'] ?? 0}x ${item['productName'] ?? 'Item'}';
+    }).toList();
+    final statusName = data['status'] as String? ?? 'pending';
+
+    return BuyerOrder(
+      id: document.id,
+      orderNumber: data['orderNumber'] as String? ?? document.id,
+      timeString: date.toLocal().toString().substring(0, 16),
+      itemSummaries: summaries,
+      totalAmount: (data['totalAmount'] as num?)?.toDouble() ?? 0,
+      status: BuyerOrderStatus.values.firstWhere(
+        (value) => value.name == statusName,
+        orElse: () => BuyerOrderStatus.pending,
+      ),
+    );
+  }
+
   BuyerOrder copyWith({
     String? timeString,
     List<String>? itemSummaries,
@@ -33,31 +61,3 @@ class BuyerOrder {
     );
   }
 }
-
-// Sample order history matching the design
-final List<BuyerOrder> sampleBuyerOrders = [
-  const BuyerOrder(
-    id: 'bo1',
-    orderNumber: 'SB-02547',
-    timeString: 'May 25, 2026 - 10:30',
-    itemSummaries: ['1x Artisanal Sourdough', '2x Cookies'],
-    totalAmount: 42.50,
-    status: BuyerOrderStatus.packed,
-  ),
-  const BuyerOrder(
-    id: 'bo2',
-    orderNumber: 'SB-02102',
-    timeString: 'May 22, 2026 - 15:15',
-    itemSummaries: ['1x Homemade Murukku'],
-    totalAmount: 8.00,
-    status: BuyerOrderStatus.delivered,
-  ),
-  const BuyerOrder(
-    id: 'bo3',
-    orderNumber: 'SB-01985',
-    timeString: 'May 20, 2026 - 11:45',
-    itemSummaries: ['2x Spicy Banana Chips'],
-    totalAmount: 10.00,
-    status: BuyerOrderStatus.delivered,
-  ),
-];

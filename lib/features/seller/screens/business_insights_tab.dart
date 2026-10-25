@@ -1,261 +1,102 @@
 import 'package:flutter/material.dart';
 import 'package:snack_bazaar/core/theme/app_colors.dart';
+import 'package:snack_bazaar/features/seller/models/seller_order.dart';
+import 'package:snack_bazaar/features/seller/services/seller_order_repository.dart';
 
 class BusinessInsightsTab extends StatelessWidget {
   const BusinessInsightsTab({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Section: Insights Summary
-          const Text(
-            'Insights Summary',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
-              letterSpacing: -0.2,
-            ),
-          ),
-          const SizedBox(height: 2),
-          const Text(
-            "A snapshot of your shop's performance over the last 30 days.",
-            style: TextStyle(
-              fontSize: 12.5,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 18),
+  Widget build(BuildContext context) => StreamBuilder<List<SellerOrder>>(
+        stream: SellerOrderRepository().watchOrders(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) return const Center(child: Text('Could not load order insights.'));
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-          // Side-by-side metric cards
-          Row(
+          final orders = snapshot.data ?? const <SellerOrder>[];
+          final revenue = orders.fold<double>(0, (sum, order) => sum + order.totalAmount);
+          final products = <String, ({int quantity, double revenue})>{};
+          for (final order in orders) {
+            for (final item in order.items) {
+              final previous = products[item.productName] ?? (quantity: 0, revenue: 0.0);
+              products[item.productName] = (
+                quantity: previous.quantity + item.quantity,
+                revenue: previous.revenue + item.price * item.quantity,
+              );
+            }
+          }
+          final rankedProducts = products.entries.toList()
+            ..sort((a, b) => b.value.quantity.compareTo(a.value.quantity));
+          return ListView(
+            padding: const EdgeInsets.all(20),
             children: [
-              _buildSummaryCard(
-                title: 'TOTAL REVENUE',
-                value: '\$5,240',
-                subtitle: '+12% growth (vs last 30d)',
-                icon: Icons.analytics_outlined,
-                color: AppColors.primary,
-              ),
-              const SizedBox(width: 14),
-              _buildSummaryCard(
-                title: 'TOTAL ORDERS',
-                value: '145',
-                subtitle: 'Customers love snacks',
-                icon: Icons.shopping_basket_outlined,
-                color: AppColors.secondary,
-              ),
+              const Text('Shop Insights', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              const Text('Calculated from your saved orders.', style: TextStyle(color: AppColors.textSecondary)),
+              const SizedBox(height: 18),
+              Row(children: [
+                _SummaryCard(title: 'ORDER VALUE', value: '₹${revenue.toStringAsFixed(2)}', icon: Icons.currency_rupee),
+                const SizedBox(width: 12),
+                _SummaryCard(title: 'TOTAL ORDERS', value: orders.length.toString(), icon: Icons.shopping_basket_outlined),
+              ]),
+              const SizedBox(height: 28),
+              const Text('Products in orders', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 12),
+              if (rankedProducts.isEmpty)
+                const Text('Product sales will appear here after orders are placed.')
+              else
+                ...rankedProducts.take(5).map((entry) => Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: Row(children: [
+                        Expanded(
+                          flex: 3,
+                          child: Text(entry.key, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Text('${entry.value.quantity} sold', textAlign: TextAlign.center),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Text('₹${entry.value.revenue.toStringAsFixed(2)}', textAlign: TextAlign.end),
+                        ),
+                      ]),
+                    )),
             ],
-          ),
-          const SizedBox(height: 32),
+          );
+        },
+      );
+}
 
-          // Section: Top 5 Selling Products
-          const Text(
-            'Top 5 Selling Products',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
-              letterSpacing: -0.1,
+class _SummaryCard extends StatelessWidget {
+  const _SummaryCard({required this.title, required this.value, required this.icon});
+
+  final String title;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(icon, color: AppColors.primary),
+            const SizedBox(height: 10),
+            Text(title, style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+            const SizedBox(height: 4),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
             ),
-          ),
-          const SizedBox(height: 16),
-
-          _buildTopProductItem(
-            rank: 1,
-            name: 'Honey Caramel Cups',
-            salesCount: 142,
-            revenue: 710.00,
-            maxSales: 142,
-          ),
-          _buildTopProductItem(
-            rank: 2,
-            name: 'Spicy Banana Chips',
-            salesCount: 120,
-            revenue: 600.00,
-            maxSales: 142,
-          ),
-          _buildTopProductItem(
-            rank: 3,
-            name: 'Artisanal Sourdough',
-            salesCount: 85,
-            revenue: 1020.00,
-            maxSales: 142,
-          ),
-          _buildTopProductItem(
-            rank: 4,
-            name: 'Chocolate Fudge',
-            salesCount: 55,
-            revenue: 440.00,
-            maxSales: 142,
-          ),
-          _buildTopProductItem(
-            rank: 5,
-            name: 'Sea Salt Pretzels',
-            salesCount: 35,
-            revenue: 157.50,
-            maxSales: 142,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSummaryCard({
-    required String title,
-    required String value,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border),
+          ]),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textTertiary,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                Icon(icon, color: color, size: 18),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textPrimary,
-                letterSpacing: -0.5,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w600,
-                color: color,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTopProductItem({
-    required int rank,
-    required String name,
-    required int salesCount,
-    required double revenue,
-    required int maxSales,
-  }) {
-    final double percentage = salesCount / maxSales;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              // Rank Circle
-              Container(
-                width: 26,
-                height: 26,
-                decoration: BoxDecoration(
-                  color: rank == 1 ? AppColors.primary : AppColors.background,
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    rank.toString(),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: rank == 1 ? Colors.white : AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Name & Category
-              Expanded(
-                child: Text(
-                  name,
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ),
-              // Details: Sales & Revenue
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '$salesCount sold',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  Text(
-                    '\$${revenue.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppColors.textSecondary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // Progress bar
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: percentage,
-              minHeight: 6,
-              backgroundColor: AppColors.background,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                rank == 1 ? AppColors.primary : AppColors.primary.withValues(alpha: 0.5),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+      );
 }

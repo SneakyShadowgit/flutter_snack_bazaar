@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:snack_bazaar/core/theme/app_colors.dart';
 import 'package:snack_bazaar/features/seller/models/seller_order.dart';
+import 'package:snack_bazaar/features/seller/services/seller_order_repository.dart';
 
 class OrdersManagementTab extends StatefulWidget {
   const OrdersManagementTab({super.key});
@@ -10,65 +11,59 @@ class OrdersManagementTab extends StatefulWidget {
 }
 
 class _OrdersManagementTabState extends State<OrdersManagementTab> {
-  late List<SellerOrder> _orders;
+  final SellerOrderRepository _repository = SellerOrderRepository();
+  late final Stream<List<SellerOrder>> _ordersStream;
 
   @override
   void initState() {
     super.initState();
-    _orders = List.from(sampleSellerOrders);
+    _ordersStream = _repository.watchOrders();
   }
 
-  void _advanceOrderStatus(SellerOrder order) {
-    SellerOrderStatus nextStatus;
-    String statusVerb = '';
-
-    switch (order.status) {
-      case SellerOrderStatus.pending:
-        nextStatus = SellerOrderStatus.packed;
-        statusVerb = 'packed';
-        break;
-      case SellerOrderStatus.packed:
-        nextStatus = SellerOrderStatus.shipped;
-        statusVerb = 'shipped';
-        break;
-      case SellerOrderStatus.shipped:
-        nextStatus = SellerOrderStatus.delivered;
-        statusVerb = 'delivered';
-        break;
-      case SellerOrderStatus.delivered:
-        return; // Already delivered
-    }
-
-    setState(() {
-      final index = _orders.indexWhere((o) => o.id == order.id);
-      if (index != -1) {
-        _orders[index] = _orders[index].copyWith(status: nextStatus);
+  Future<void> _advanceOrderStatus(SellerOrder order) async {
+    try {
+      await _repository.advanceStatus(order);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Order #${order.orderNumber} status updated.'),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Order #${order.orderNumber} successfully marked as $statusVerb!'),
-        backgroundColor: AppColors.success,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not update order: $error')),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Calculate metric numbers dynamically
-    final int pendingCount = _orders.where((o) => o.status == SellerOrderStatus.pending).length + 2; // offset to match Figma mock
-    final int packedCount = _orders.where((o) => o.status == SellerOrderStatus.packed).length + 7;
-    final int shippedCount = _orders.where((o) => o.status == SellerOrderStatus.shipped).length + 13;
-    
-    double revenueTotal = 1380.00; // base revenue to match Figma mock
-    for (var o in _orders) {
-      if (o.status == SellerOrderStatus.delivered || o.status == SellerOrderStatus.shipped) {
-        revenueTotal += o.totalAmount;
-      }
-    }
+    return StreamBuilder<List<SellerOrder>>(
+      stream: _ordersStream,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(child: Text('Could not load seller orders: ${snapshot.error}'));
+        }
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        return _buildOrdersContent(snapshot.data ?? const []);
+      },
+    );
+  }
+
+  Widget _buildOrdersContent(List<SellerOrder> orders) {
+    final pendingCount = orders.where((o) => o.status == SellerOrderStatus.pending).length;
+    final packedCount = orders.where((o) => o.status == SellerOrderStatus.packed).length;
+    final shippedCount = orders.where((o) => o.status == SellerOrderStatus.shipped).length;
+    final revenueTotal = orders
+        .where((o) => o.status == SellerOrderStatus.delivered)
+        .fold<double>(0, (sum, order) => sum + order.totalAmount);
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -99,7 +94,7 @@ class _OrdersManagementTabState extends State<OrdersManagementTab> {
               const SizedBox(width: 8),
               _buildSmallMetricChip(
                 label: 'Revenue',
-                value: '\$${revenueTotal.toStringAsFixed(0)}',
+                value: '₹${revenueTotal.toStringAsFixed(0)}',
                 color: AppColors.primary, // Blue
               ),
             ],
@@ -133,10 +128,10 @@ class _OrdersManagementTabState extends State<OrdersManagementTab> {
           const SizedBox(height: 12),
 
           // Orders list
-          if (_orders.isEmpty)
+          if (orders.isEmpty)
             _buildEmptyOrdersState()
           else
-            ..._orders.map((order) => _buildOrderCard(order)),
+            ...orders.map((order) => _buildOrderCard(order)),
         ],
       ),
     );
@@ -291,7 +286,7 @@ class _OrdersManagementTabState extends State<OrdersManagementTab> {
                     ),
                     const Spacer(),
                     Text(
-                      '\$${order.totalAmount.toStringAsFixed(2)}',
+                      '₹${order.totalAmount.toStringAsFixed(2)}',
                       style: const TextStyle(
                         fontSize: 14.5,
                         fontWeight: FontWeight.w800,
@@ -300,6 +295,32 @@ class _OrdersManagementTabState extends State<OrdersManagementTab> {
                     ),
                   ],
                 ),
+                if (order.phone.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.phone_outlined, size: 15, color: AppColors.textSecondary),
+                      const SizedBox(width: 7),
+                      Text(order.phone, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                    ],
+                  ),
+                ],
+                if (order.deliveryAddress.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.location_on_outlined, size: 15, color: AppColors.textSecondary),
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: Text(
+                          order.deliveryAddress,
+                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 10),
                 
                 // Item list text representation

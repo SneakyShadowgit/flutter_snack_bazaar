@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:snack_bazaar/core/theme/app_colors.dart';
 import 'package:snack_bazaar/features/seller/screens/seller_dashboard_tab.dart';
 import 'package:snack_bazaar/features/seller/screens/product_management_tab.dart';
@@ -16,10 +17,10 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
   int _currentTabIndex = 0;
 
   final List<String> _tabTitles = [
-    "Baker's Portal",
-    "Baker's Portal",
-    "Baker's Portal",
-    "Baker's Portal",
+    'Seller Portal',
+    'Seller Portal',
+    'Seller Portal',
+    'Seller Portal',
   ];
 
   @override
@@ -47,11 +48,9 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
       elevation: 0,
       scrolledUnderElevation: 0.5,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-        tooltip: 'Change Portal',
-        onPressed: () {
-          Navigator.pop(context);
-        },
+        icon: const Icon(Icons.logout, color: AppColors.textPrimary),
+        tooltip: 'Sign out',
+        onPressed: () => FirebaseAuth.instance.signOut(),
       ),
       title: Text(
         _tabTitles[_currentTabIndex],
@@ -63,18 +62,6 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
         ),
       ),
       actions: [
-        IconButton(
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Notifications loaded locally'),
-                duration: Duration(seconds: 1),
-              ),
-            );
-          },
-          icon: const Icon(Icons.notifications_outlined, size: 24),
-          color: AppColors.textPrimary,
-        ),
         Padding(
           padding: const EdgeInsets.only(right: 12),
           child: Container(
@@ -86,7 +73,7 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
             ),
             child: const Center(
               child: Text(
-                'B',
+                'S',
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 14,

@@ -8,7 +8,10 @@ class SellerProduct {
   final String category;
   final int stockQuantity;
   final double rating;
-  final String imageKey; // Identifies which snack style/mock representation to draw or load
+  final String imageKey; // Category-style fallback illustration when no photo URL is set.
+  final String imageUrl;
+  final String? sellerId;
+  final String sellerName;
 
   const SellerProduct({
     required this.id,
@@ -19,6 +22,9 @@ class SellerProduct {
     required this.stockQuantity,
     required this.rating,
     required this.imageKey,
+    this.imageUrl = '',
+    this.sellerId,
+    this.sellerName = 'Local Seller',
   });
 
   /// Factory constructor to create a SellerProduct from a Firestore document snapshot.
@@ -34,6 +40,9 @@ class SellerProduct {
       stockQuantity: (data['stockQuantity'] as num?)?.toInt() ?? 0,
       rating: (data['rating'] as num?)?.toDouble() ?? 0.0,
       imageKey: data['imageKey'] as String? ?? 'default',
+      imageUrl: data['imageUrl'] as String? ?? '',
+      sellerId: data['sellerId'] as String?,
+      sellerName: data['seller'] as String? ?? 'Local Seller',
     );
   }
 
@@ -48,7 +57,8 @@ class SellerProduct {
       'stockQuantity': stockQuantity,
       'rating': rating,
       'imageKey': imageKey,
-      'seller': "Baker's Kitchen", // Default seller name for the current seller portal
+      'imageUrl': imageUrl,
+      'seller': sellerName,
     };
   }
 
@@ -60,6 +70,7 @@ class SellerProduct {
     int? stockQuantity,
     double? rating,
     String? imageKey,
+    String? imageUrl,
   }) {
     return SellerProduct(
       id: id,
@@ -70,51 +81,9 @@ class SellerProduct {
       stockQuantity: stockQuantity ?? this.stockQuantity,
       rating: rating ?? this.rating,
       imageKey: imageKey ?? this.imageKey,
+      imageUrl: imageUrl ?? this.imageUrl,
+      sellerId: sellerId,
+      sellerName: sellerName,
     );
   }
 }
-
-
-// Global list of mock seller inventory
-final List<SellerProduct> sampleSellerProducts = [
-  const SellerProduct(
-    id: 'p1',
-    name: 'Spicy Banana Chips',
-    description: 'Crispy, thinly sliced plantains seasoned with a spicy blend of chili powder, salt, and local spices. The perfect salty crunch with a hot kick!',
-    price: 5.00,
-    category: 'Chips',
-    stockQuantity: 24,
-    rating: 4.8,
-    imageKey: 'banana_chips',
-  ),
-  const SellerProduct(
-    id: 'p2',
-    name: 'Honey Mustard Pretzels',
-    description: 'Classic crunchy pretzels coated in a thick, sweet, and tangy honey mustard seasoning. A satisfying sweet-salty combination.',
-    price: 4.50,
-    category: 'Snacks',
-    stockQuantity: 12,
-    rating: 4.9,
-    imageKey: 'pretzels',
-  ),
-  const SellerProduct(
-    id: 'p3',
-    name: 'Masala Peanuts',
-    description: 'Roasted peanuts tossed in a rich, aromatic mix of Indian masalas and spices. Great for sharing or enjoying as a quick savory snack.',
-    price: 3.75,
-    category: 'Snacks',
-    stockQuantity: 8,
-    rating: 3.5,
-    imageKey: 'peanuts',
-  ),
-  const SellerProduct(
-    id: 'p4',
-    name: 'Artisanal Wild Yeast Sourdough',
-    description: 'Our signature 48-hour fermented wild yeast sourdough. Hand-shaped and stone-baked for a thick, bubbly crust and an airy, tangy crumb. No preservatives.',
-    price: 12.00,
-    category: 'Breads',
-    stockQuantity: 25,
-    rating: 4.5,
-    imageKey: 'sourdough',
-  ),
-];

@@ -26,9 +26,9 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   late int _stockQuantity;
   late double _price;
   late String _imageKey;
+  late final TextEditingController _imageUrlController;
 
   final List<String> _categories = ['Chips', 'Snacks', 'Breads', 'Cookies', 'Cakes', 'Pickles', 'Sweets'];
-  bool _hasImage = true;
 
   // Tracks whether a Firestore save/update operation is in progress
   bool _isSaving = false;
@@ -44,8 +44,15 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
       _category = _categories.first;
     }
     _stockQuantity = p?.stockQuantity ?? 10;
-    _price = p?.price ?? 4.99;
+    _price = p?.price ?? 99.0;
     _imageKey = p?.imageKey ?? 'banana_chips';
+    _imageUrlController = TextEditingController(text: p?.imageUrl ?? '');
+  }
+
+  @override
+  void dispose() {
+    _imageUrlController.dispose();
+    super.dispose();
   }
 
   /// Validates the form fields and saves/updates the product in Firestore.
@@ -95,8 +102,11 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
       price: _price,
       category: _category,
       stockQuantity: _stockQuantity,
-      rating: widget.product?.rating ?? 5.0,
-      imageKey: _hasImage ? _imageKey : 'default',
+      rating: widget.product?.rating ?? 0.0,
+      imageKey: _imageKey,
+      imageUrl: _imageUrlController.text.trim(),
+      sellerId: widget.product?.sellerId,
+      sellerName: widget.product?.sellerName ?? 'Local Seller',
     );
 
     try {
@@ -193,6 +203,27 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                 ),
                 const SizedBox(height: 10),
                 _buildImageSection(),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _imageUrlController,
+                  keyboardType: TextInputType.url,
+                  decoration: _buildInputDecoration('Paste a direct image link (https://...)'),
+                  onChanged: (_) => setState(() {}),
+                  validator: (value) {
+                    final url = value?.trim() ?? '';
+                    if (url.isEmpty) return null;
+                    final uri = Uri.tryParse(url);
+                    if (uri == null || !uri.hasAuthority || !['http', 'https'].contains(uri.scheme)) {
+                      return 'Enter a valid http or https image URL';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Use a direct link to an image ending in .jpg, .png, or .webp.',
+                  style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                ),
                 const SizedBox(height: 24),
 
                 // Product Name Field
@@ -200,7 +231,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                 TextFormField(
                   initialValue: _name,
                   textCapitalization: TextCapitalization.words,
-                  decoration: _buildInputDecoration('e.g. Spicy Banana Chips'),
+                  decoration: _buildInputDecoration('e.g. Your snack name'),
                   validator: (val) {
                     if (val == null || val.trim().isEmpty) return 'Product name is required';
                     return null;
@@ -281,21 +312,21 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                 const SizedBox(height: 18),
 
                 // Price Field
-                _buildLabel('Price (USD)'),
+                _buildLabel('Price (INR)'),
                 TextFormField(
                   initialValue: isEdit ? _price.toStringAsFixed(2) : '',
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: _buildInputDecoration('e.g. 4.99').copyWith(
-                    prefixText: '\$ ',
+                  decoration: _buildInputDecoration('e.g. 99.00').copyWith(
+                    prefixText: '₹ ',
                     prefixStyle: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                   ),
                   validator: (val) {
                     if (val == null || val.trim().isEmpty) return 'Price is required';
-                    final num = double.tryParse(val.trim().replaceAll('\$', ''));
+                    final num = double.tryParse(val.trim().replaceAll('₹', ''));
                     if (num == null || num <= 0) return 'Enter a valid price';
                     return null;
                   },
-                  onSaved: (val) => _price = double.parse(val!.trim().replaceAll('\$', '')),
+                  onSaved: (val) => _price = double.parse(val!.trim().replaceAll('₹', '')),
                 ),
                 const SizedBox(height: 36),
 
@@ -400,7 +431,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   Widget _buildImageSection() {
     return Container(
       width: double.infinity,
-      height: 200,
+      height: 160,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -409,74 +440,13 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          if (_hasImage)
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SnackVisualThumbnail(imageKey: _imageKey, size: 90),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    TextButton(
-                      onPressed: () {
-                        setState(() {
-                          _hasImage = false;
-                        });
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Mock: Image removed'),
-                            duration: Duration(seconds: 1),
-                          ),
-                        );
-                      },
-                      style: TextButton.styleFrom(foregroundColor: AppColors.error),
-                      child: const Text('Remove', style: TextStyle(fontWeight: FontWeight.w600)),
-                    ),
-                    const SizedBox(width: 16),
-                    ElevatedButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Mock: Select a photo from system gallery'),
-                            duration: Duration(seconds: 1),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.border,
-                        foregroundColor: AppColors.textPrimary,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      child: const Text('Change Photo', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                    ),
-                  ],
-                ),
-              ],
-            )
-          else
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.add_photo_alternate_outlined, size: 48, color: AppColors.textTertiary.withValues(alpha: 0.5)),
-                const SizedBox(height: 12),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _hasImage = true;
-                    });
-                  },
-                  icon: const Icon(Icons.upload, size: 16),
-                  label: const Text('Add Product Photo'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                  ),
-                ),
-              ],
+          Center(
+            child: SnackVisualThumbnail(
+              imageKey: _imageKey,
+              imageUrl: _imageUrlController.text.trim(),
+              size: 120,
             ),
+          ),
         ],
       ),
     );

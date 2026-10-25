@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:snack_bazaar/core/theme/app_colors.dart';
 import 'package:snack_bazaar/features/admin/models/seller_request.dart';
 import 'package:snack_bazaar/features/admin/widgets/stat_card.dart';
 import 'package:snack_bazaar/features/admin/widgets/seller_request_card.dart';
 import 'package:snack_bazaar/features/admin/screens/sellers_list_screen.dart';
 import 'package:snack_bazaar/features/admin/screens/insights_screen.dart';
+import 'package:snack_bazaar/features/seller/services/seller_application_repository.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -15,42 +17,30 @@ class AdminHomeScreen extends StatefulWidget {
 
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
   int _currentNavIndex = 0;
-  late List<SellerRequest> _pendingRequests;
+  final SellerApplicationRepository _applications = SellerApplicationRepository();
 
-  @override
-  void initState() {
-    super.initState();
-    _pendingRequests = List.from(sampleSellerRequests);
-  }
-
-  void _handleApprove(SellerRequest request) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${request.businessName} approved!'),
-        backgroundColor: AppColors.success,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.all(16),
-      ),
-    );
-    setState(() {
-      _pendingRequests.removeWhere((r) => r.id == request.id);
-    });
-  }
-
-  void _handleReject(SellerRequest request) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${request.businessName} rejected.'),
-        backgroundColor: AppColors.error,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.all(16),
-      ),
-    );
-    setState(() {
-      _pendingRequests.removeWhere((r) => r.id == request.id);
-    });
+  Future<void> _handleReview(SellerRequest request, {required bool approve}) async {
+    try {
+      await _applications.review(request, approve: approve);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            approve
+                ? '${request.businessName} approved.'
+                : '${request.businessName} rejected.',
+          ),
+          backgroundColor: approve ? AppColors.success : AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not review application: $error')),
+        );
+      }
+    }
   }
 
   @override
@@ -78,8 +68,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       ),
       actions: [
         IconButton(
-          onPressed: () {},
-          icon: const Icon(Icons.notifications_outlined, size: 24),
+          onPressed: () => FirebaseAuth.instance.signOut(),
+          icon: const Icon(Icons.logout, size: 24),
           color: AppColors.textPrimary,
         ),
         Padding(
@@ -107,6 +97,22 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   }
 
   Widget _buildRequestsBody() {
+    return StreamBuilder<List<SellerRequest>>(
+      stream: _applications.watchPending(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(child: Text('Could not load applications: ${snapshot.error}'));
+        }
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final requests = snapshot.data ?? const <SellerRequest>[];
+        return _buildRequestsContent(requests);
+      },
+    );
+  }
+
+  Widget _buildRequestsContent(List<SellerRequest> requests) {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(20),
@@ -114,7 +120,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // — Stats row —
-          _buildStatsRow(),
+          _buildStatsRow(requests.length),
           const SizedBox(height: 28),
 
           // — Verification Queue header —
@@ -122,48 +128,30 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           const SizedBox(height: 16),
 
           // — Seller request cards —
-          ..._pendingRequests.map(
+          ...requests.map(
             (request) => SellerRequestCard(
               request: request,
-              onApprove: () => _handleApprove(request),
-              onReject: () => _handleReject(request),
+              onApprove: () => _handleReview(request, approve: true),
+              onReject: () => _handleReview(request, approve: false),
             ),
           ),
 
           // Empty state
-          if (_pendingRequests.isEmpty) _buildEmptyState(),
+          if (requests.isEmpty) _buildEmptyState(),
         ],
       ),
     );
   }
 
-  Widget _buildStatsRow() {
+  Widget _buildStatsRow(int pendingCount) {
     return Row(
       children: [
         StatCard(
           title: 'Pending Requests',
-          value: '${_pendingRequests.length > 9 ? _pendingRequests.length : "24"}',
-          subtitle: 'Updated 5m ago',
+          value: pendingCount.toString(),
+          subtitle: 'Current review queue',
           valueColor: AppColors.primary,
           subtitleIcon: Icons.schedule,
-          subtitleIconColor: AppColors.textTertiary,
-        ),
-        const SizedBox(width: 12),
-        const StatCard(
-          title: 'Approved Today',
-          value: '12',
-          subtitle: '+15% from yesterday',
-          valueColor: AppColors.textPrimary,
-          subtitleIcon: Icons.trending_up,
-          subtitleIconColor: AppColors.success,
-        ),
-        const SizedBox(width: 12),
-        const StatCard(
-          title: 'Rejected Today',
-          value: '2',
-          subtitle: 'Mostly policy violations',
-          valueColor: AppColors.error,
-          subtitleIcon: Icons.info_outline,
           subtitleIconColor: AppColors.textTertiary,
         ),
       ],
@@ -181,18 +169,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
             letterSpacing: -0.2,
-          ),
-        ),
-        TextButton.icon(
-          onPressed: () {},
-          icon: const Icon(Icons.filter_list, size: 18),
-          label: const Text('Filter'),
-          style: TextButton.styleFrom(
-            foregroundColor: AppColors.primary,
-            textStyle: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
           ),
         ),
       ],

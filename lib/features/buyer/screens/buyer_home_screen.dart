@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:snack_bazaar/core/theme/app_colors.dart';
 import 'package:snack_bazaar/features/seller/models/seller_product.dart';
 import 'package:snack_bazaar/features/buyer/models/cart_item.dart';
@@ -6,6 +7,7 @@ import 'package:snack_bazaar/features/buyer/models/buyer_order.dart';
 import 'package:snack_bazaar/features/buyer/screens/buyer_browse_tab.dart';
 import 'package:snack_bazaar/features/buyer/screens/cart_tab.dart';
 import 'package:snack_bazaar/features/buyer/screens/orders_tab.dart';
+import 'package:snack_bazaar/features/buyer/services/buyer_order_repository.dart';
 
 class BuyerHomeScreen extends StatefulWidget {
   const BuyerHomeScreen({super.key});
@@ -19,13 +21,24 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
 
   // Shared state
   final List<CartItem> _cartItems = [];
-  late List<BuyerOrder> _buyerOrders;
+  final BuyerOrderRepository _orderRepository = BuyerOrderRepository();
+  late final Stream<List<BuyerOrder>> _ordersStream;
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _addressController = TextEditingController();
+  bool _isPlacingOrder = false;
 
   @override
   void initState() {
     super.initState();
-    _buyerOrders = List.from(sampleBuyerOrders);
+    _ordersStream = _orderRepository.watchOrders();
     // Cart starts empty — products are now loaded dynamically from Firestore
+  }
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    _addressController.dispose();
+    super.dispose();
   }
 
   void _addToCart(SellerProduct product, {int quantity = 1}) {
@@ -82,37 +95,95 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
     );
   }
 
-  void _placeOrder() {
-    if (_cartItems.isEmpty) return;
-
-    final double total = _cartItems.fold(0.0, (sum, item) => sum + item.total);
-    final List<String> summaries = _cartItems.map((item) => '${item.quantity}x ${item.product.name}').toList();
-
-    setState(() {
-      // Create new buyer order
-      final newOrderNum = 'SB-0${2548 + _buyerOrders.length}';
-      final newOrder = BuyerOrder(
-        id: 'bo_${DateTime.now().millisecondsSinceEpoch}',
-        orderNumber: newOrderNum,
-        timeString: 'Just now',
-        itemSummaries: summaries,
-        totalAmount: total,
-        status: BuyerOrderStatus.pending,
-      );
-
-      _buyerOrders.insert(0, newOrder);
-      _cartItems.clear();
-      _currentTabIndex = 2; // Route to Orders tab
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Order placed successfully! Checkout completed.'),
-        backgroundColor: Colors.green[700],
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+  Future<void> _placeOrder() async {
+    if (_cartItems.isEmpty || _isPlacingOrder) return;
+    _phoneController.clear();
+    _addressController.clear();
+    final details = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delivery details'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(labelText: 'Phone number'),
+            ),
+            TextField(
+              controller: _addressController,
+              textCapitalization: TextCapitalization.sentences,
+              minLines: 2,
+              maxLines: 4,
+              decoration: const InputDecoration(labelText: 'Delivery address'),
+            ),
+            const SizedBox(height: 12),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Payment: Cash on delivery'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (_phoneController.text.trim().isEmpty ||
+                  _addressController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Enter a phone number and delivery address.')),
+                );
+                return;
+              }
+              Navigator.pop(dialogContext, {
+                'phone': _phoneController.text.trim(),
+                'address': _addressController.text.trim(),
+              });
+            },
+            child: const Text('Confirm order'),
+          ),
+        ],
       ),
     );
+    if (details == null || !mounted) return;
+
+    setState(() => _isPlacingOrder = true);
+    final subtotal = _cartItems.fold(0.0, (sum, item) => sum + item.total);
+    final deliveryFee = subtotal > 499.0 ? 0.0 : 49.0;
+    try {
+      await _orderRepository.placeCashOnDeliveryOrder(
+        items: List<CartItem>.from(_cartItems),
+        customerName: FirebaseAuth.instance.currentUser?.displayName ?? 'Buyer',
+        phone: details['phone']!,
+        deliveryAddress: details['address']!,
+        subtotal: subtotal,
+        deliveryFee: deliveryFee,
+      );
+      if (!mounted) return;
+      setState(() {
+        _cartItems.clear();
+        _currentTabIndex = 2;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cash-on-delivery order saved.'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save order: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isPlacingOrder = false);
+    }
   }
 
   @override
@@ -129,8 +200,16 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
               onUpdateQuantity: _updateCartQuantity,
               onRemove: _removeFromCart,
               onCheckout: _placeOrder,
+              isCheckoutBusy: _isPlacingOrder,
             ),
-            OrdersTab(orders: _buyerOrders),
+            StreamBuilder<List<BuyerOrder>>(
+              stream: _ordersStream,
+              builder: (context, snapshot) => OrdersTab(
+                orders: snapshot.data ?? const [],
+                isLoading: snapshot.connectionState == ConnectionState.waiting,
+                errorMessage: snapshot.hasError ? 'Could not load orders: ${snapshot.error}' : null,
+              ),
+            ),
           ],
         ),
       ),
